@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Folder Selection </title>
+    <HTA:APPLICATION
+        APPLICATIONNAME="Folder Selection "
+        BORDER="thin"
+        SCROLL="auto"
+        SINGLEINSTANCE="yes"
+        WINDOWSTATE="normal"
+        INNERBORDER="no"
+        CAPTION="yes"
+        SYSMENU="yes"
+        MAXIMIZEBUTTON="no"
+        MINIMIZEBUTTON="yes"
+        CONTEXTMENU="no"
+        SELECTION="no"
+        SHOWINTASKBAR="yes"
+        ICON="path_to_your_icon.ico"
+    >
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #000;
+            color: #00ff00;
+            margin: 20px;
+        }
+        h1 {
+            color: #00ff00;
+        }
+        .button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        p {
+            color: #00ff00;
+        }
+        span {
+            color: #00ff00;
+            font-weight: bold;
+        }
+    </style>
+    <script language="VBScript">
+        Option Explicit
+
+        Dim objFSO, objShell
+        Dim sourceFolder, destFolder
+        Dim configFile
+
+        Sub Window_OnLoad
+            Set objFSO = CreateObject("Scripting.FileSystemObject")
+            Set objShell = CreateObject("Shell.Application")
+            configFile = "loc.cfg"
+
+            ' Check if the configuration file already exists
+            If objFSO.FileExists(configFile) Then
+                ' Configuration file already exists, ask if user wants to overwrite
+                Dim overwrite
+                overwrite = MsgBox("Configuration file 'loc.cfg' already exists. Do you want to overwrite it?", vbYesNo + vbQuestion, "Overwrite Configuration File")
+
+                If overwrite = vbNo Then
+                    window.alert "Operation canceled. Configuration file not updated."
+                    window.close
+                    Exit Sub
+                End If
+            End If
+        End Sub
+
+        Sub SelectSourceFolder
+            sourceFolder = BrowseForFolder("Select Source Folder")
+            If sourceFolder <> "" Then
+                document.getElementById("sourceFolder").innerText = sourceFolder
+            Else
+                window.alert "No source folder selected. Configuration file not updated."
+            End If
+        End Sub
+
+        Sub SelectDestFolder
+            destFolder = BrowseForFolder("Select Destination Folder")
+            If destFolder <> "" Then
+                document.getElementById("destFolder").innerText = destFolder
+            Else
+                window.alert "No destination folder selected. Configuration file not updated."
+            End If
+        End Sub
+
+        Sub WriteConfigAndClose
+            If sourceFolder <> "" And destFolder <> "" Then
+                WriteConfigFile configFile, sourceFolder, destFolder
+                window.alert "Configuration file 'loc.cfg' updated successfully."
+                window.close
+            Else
+                window.alert "Please select both source and destination folders."
+            End If
+        End Sub
+
+        Function BrowseForFolder(prompt)
+            Dim folder
+            Set folder = objShell.BrowseForFolder(0, prompt, 0, "") ' 0 = no options, "" = start folder
+            If Not folder Is Nothing Then
+                BrowseForFolder = folder.Self.Path
+            Else
+                BrowseForFolder = ""
+            End If
+        End Function
+
+        Sub WriteConfigFile(configFile, sourceFolder, destFolder)
+            Dim objFile
+            Set objFile = objFSO.CreateTextFile(configFile, True) ' True = overwrite existing file if it exists
+
+            ' Write source and destination folders to the configuration file
+            objFile.WriteLine "Source=" & sourceFolder
+            objFile.WriteLine "Destination=" & destFolder
+
+            objFile.Close
+        End Sub
+    </script>
+</head>
+<body>
+    <h1>Folder Selection </h1>
+    <p>Select source and destination folders:</p>
+    <p>
+        <button class="button" onclick="SelectSourceFolder()">Select Source Folder</button>
+        Selected Source Folder: <span id="sourceFolder"></span>
+    </p>
+    <p>
+        <button class="button" onclick="SelectDestFolder()">Select Destination Folder</button>
+        Selected Destination Folder: <span id="destFolder"></span>
+    </p>
+    <p><button class="button" onclick="WriteConfigAndClose()">Save and Close</button></p>
+</body>
+</html>

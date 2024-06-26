@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voidz Mod Loader</title>
+    <hta:application
+        id="oApp"
+        applicationname="Voidz Mod Loader"
+        icon="_imgLib\cog.ico"
+        border="thin"
+        caption="yes"
+        contextmenu="yes"
+        innerborder="yes"
+        maximizebutton="yes"
+        minimizebutton="yes"
+        navigable="yes"
+        scroll="yes"
+        selection="yes"
+        showintaskbar="yes"
+        singleinstance="yes"
+        sysmenu="yes"
+        version="1.0"/>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #000; /* Black background */
+            text-align: center;
+            color: #0f0; /* Green text */
+        }
+        h1 {
+            color: #0f0; /* Green text */
+            text-shadow: 1px 1px 1px #ccc;
+        }
+        .button {
+            background-color: #000; /* Black background */
+            border: 2px solid #0f0; /* Green border */
+            color: #0f0; /* Green text */
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+        }
+        .button:hover {
+            background-color: #0f0; /* Green background on hover */
+            color: #000; /* Black text on hover */
+        }
+        .selected-folders {
+            margin-top: 20px;
+            text-align: left;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            color: #0f0; /* Green text */
+            padding: 10px;
+            background-color: #222; /* Dark background */
+            border: 2px solid #0f0; /* Green border */
+            border-radius: 8px;
+        }
+    </style>
+    <script language="VBScript">
+        Option Explicit
+        
+        Dim sourceFolder, destFolder
+        Dim objFSO, configFile, configPath
+        Dim selectedFoldersText
+
+        ' Initialize objects
+        Set objFSO = CreateObject("Scripting.FileSystemObject")
+
+        ' Path to the configuration file
+        configPath = ".\loc.cfg" ' Adjust path as necessary
+
+        ' Read configuration file if exists
+        Sub ReadConfigFile()
+            If objFSO.FileExists(configPath) Then
+                Set configFile = objFSO.OpenTextFile(configPath, 1) ' 1 = ForReading
+        
+                Do Until configFile.AtEndOfStream
+                    Dim line, key, value, splitLine
+                    line = Trim(configFile.ReadLine())
+                    
+                    ' Check if line is not empty and not a comment
+                    If line <> "" And Left(line, 1) <> ";" Then
+                        ' Check if line contains '=' for key-value pair
+                        If InStr(line, "=") > 0 Then
+                            ' Split the line into key and value
+                            splitLine = Split(line, "=", 2) ' Split into key and value, max 2 elements
+                            If UBound(splitLine) = 1 Then
+                                key = Trim(splitLine(0))
+                                value = Trim(splitLine(1))
+                                
+                                ' Assign values based on key
+                                If LCase(key) = "source" Then
+                                    sourceFolder = value
+                                ElseIf LCase(key) = "destination" Then
+                                    destFolder = value
+                                Else
+                                    ' Handle unrecognized keys
+                                    MsgBox "Warning: Unrecognized key in config file: " & key
+                                End If
+                            Else
+                                ' Handle improperly formatted lines in the config file
+                                MsgBox "Error: Config line not properly formatted: " & line
+                            End If
+                        Else
+                            ' Handle lines without '=' (potentially headers or comments)
+                            MsgBox "Skipping line without '=': " & line
+                        End If
+                    End If
+                Loop
+                
+                configFile.Close
+            Else
+                ' If config file doesn't exist or couldn't be opened
+                MsgBox "Config file not found or inaccessible: " & configPath
+                Window.Close
+            End If
+        End Sub
+
+        ' Validate that both source and destination folders are set
+        Sub ValidateFolders()
+            If sourceFolder = "" Or destFolder = "" Then
+                MsgBox "Error: Source or Destination folder not specified in config file."
+                Window.Close
+            End If
+        End Sub
+
+        ' Function to copy files and folders recursively from source folder to destination folder
+        Sub CopyFolder()
+            Dim objFolder, objSubFolder, objFile
+            Dim destSubFolder
+            
+            ' Check if source folder exists
+            If objFSO.FolderExists(sourceFolder) Then
+                ' Create destination folder if it doesn't exist
+                If Not objFSO.FolderExists(destFolder) Then
+                    objFSO.CreateFolder(destFolder)
+                End If
+                
+                ' Get source folder object
+                Set objFolder = objFSO.GetFolder(sourceFolder)
+                
+                ' Loop through each file in the source folder and copy to destination folder
+                For Each objFile In objFolder.Files
+                    objFile.Copy objFSO.BuildPath(destFolder, objFile.Name), True
+                Next
+                
+                ' Loop through each subfolder in the source folder and recursively copy to destination folder
+                For Each objSubFolder In objFolder.SubFolders
+                    destSubFolder = objFSO.BuildPath(destFolder, objSubFolder.Name)
+                    CopySubFolder objSubFolder.Path, destSubFolder
+                Next
+
+                MsgBox "Complete" ' Show completion message
+                UpdateSelectedFoldersText ' Update selected folders text display
+            Else
+                ' Inform user if source folder doesn't exist
+                MsgBox "Source folder " & sourceFolder & " does not exist."
+            End If
+        End Sub
+        
+        ' Helper subroutine to copy subfolders recursively
+        Sub CopySubFolder(srcFolder, destFolder)
+            Dim objSubFolder, objFile
+            
+            ' Check if source folder exists
+            If objFSO.FolderExists(srcFolder) Then
+                ' Create destination folder if it doesn't exist
+                If Not objFSO.FolderExists(destFolder) Then
+                    objFSO.CreateFolder(destFolder)
+                End If
+                
+                ' Get source folder object
+                Set objSubFolder = objFSO.GetFolder(srcFolder)
+                
+                ' Loop through each file in the source folder and copy to destination folder
+                For Each objFile In objSubFolder.Files
+                    objFile.Copy objFSO.BuildPath(destFolder, objFile.Name), True
+                Next
+                
+                ' Loop through each subfolder in the source folder and recursively copy to destination folder
+                For Each objSubFolder In objSubFolder.SubFolders
+                    CopySubFolder objSubFolder.Path, objFSO.BuildPath(destFolder, objSubFolder.Name)
+                Next
+            End If
+        End Sub
+
+        ' Function to delete files and folders in destination folder that have the same names as files and folders in source folder
+        Function DeleteFilesAndFoldersInDestinationWithSameNames()
+            Dim objSourceFolder, objDestFolder
+            Dim objSourceFile, objSourceFolderName
+            Dim destFilePath, destFolderPath
+            Dim deletedItems
+            deletedItems = 0
+            
+            ' Check if destination folder exists
+            If objFSO.FolderExists(destFolder) Then
+                ' Get source folder object
+                Set objSourceFolder = objFSO.GetFolder(sourceFolder)
+                
+                ' Get destination folder object
+                Set objDestFolder = objFSO.GetFolder(destFolder)
+                
+                ' Loop through each file in source folder
+                For Each objSourceFile In objSourceFolder.Files
+                    ' Check if corresponding file exists in destination folder
+                    destFilePath = objFSO.BuildPath(destFolder, objSourceFile.Name)
+                    If objFSO.FileExists(destFilePath) Then
+                        ' Delete file in destination folder
+                        objFSO.DeleteFile destFilePath, True ' True to force delete
+                        deletedItems = deletedItems + 1
+                    End If
+                Next
+                
+                ' Loop through each subfolder in source folder
+                For Each objSourceFolderName In objSourceFolder.SubFolders
+                    ' Check if corresponding subfolder exists in destination folder
+                    destFolderPath = objFSO.BuildPath(destFolder, objSourceFolderName.Name)
+                    If objFSO.FolderExists(destFolderPath) Then
+                        ' Delete subfolder in destination folder
+                        DeleteSubFolderRecursive destFolderPath
+                        deletedItems = deletedItems + 1
+                    End If
+                Next
+                
+                MsgBox "Deleted " & deletedItems & " files/folders in destination folder with matching names."
+                UpdateSelectedFoldersText ' Update selected folders text display
+            Else
+                ' Inform user if destination folder doesn't exist
+                MsgBox "Destination folder " & destFolder & " does not exist."
+            End If
+        End Function
+
+        ' Subroutine to recursively delete subfolders
+        Sub DeleteSubFolderRecursive(folderPath)
+            Dim objFolder, objFile, objSubFolder
+            
+            ' Check if folder exists
+            If objFSO.FolderExists(folderPath) Then
+                ' Get folder object
+                Set objFolder = objFSO.GetFolder(folderPath)
+                
+                ' Delete all files in the folder
+                For Each objFile In objFolder.Files
+                    objFile.Delete True ' True to force delete
+                Next
+                
+                ' Recursively delete all subfolders
+                For Each objSubFolder In objFolder.SubFolders
+                    DeleteSubFolderRecursive objSubFolder.Path
+                Next
+                
+                ' Delete the main folder itself
+                objFolder.Delete True ' True to force delete
+            End If
+        End Sub
+
+        ' Function to open Explorer window for source folder
+        Sub OpenSourceFolder()
+            Dim objShell
+            Set objShell = CreateObject("Shell.Application")
+            objShell.Explore sourceFolder
+        End Sub
+
+        ' Function to open Explorer window for destination folder
+        Sub OpenDestinationFolder()
+            Dim objShell
+            Set objShell = CreateObject("Shell.Application")
+            objShell.Explore destFolder
+        End Sub
+
+        ' Update selected folders text display
+        Sub UpdateSelectedFoldersText()
+            selectedFoldersText = "<strong>Selected Source Folder:</strong> " & sourceFolder & "<br><strong>Selected Destination Folder:</strong> " & destFolder
+            document.getElementById("selectedFolders").innerHTML = selectedFoldersText
+        End Sub
+
+        ' Read and refresh configuration from the file
+        Sub ReadAndRefreshConfig()
+            ReadConfigFile
+            ValidateFolders
+            UpdateSelectedFoldersText
+        End Sub
+
+        ' Start the main execution
+        Sub Main()
+            ' Read the config file
+            ReadConfigFile
+            ' Validate folders from the config
+            ValidateFolders
+            ' Update selected folders text display
+            UpdateSelectedFoldersText
+        End Sub
+        
+        ' Refresh configuration
+        Sub RefreshConfig()
+            ReadAndRefreshConfig
+            MsgBox "Configuration refreshed successfully."
+        End Sub
+
+        ' Function to open cfgManager.hta file
+        Sub OpenCfgManager()
+            Dim cfgManagerPath
+            cfgManagerPath = ".\cfgManager.hta"
+            
+            ' Check if cfgManager.hta file exists
+            If objFSO.FileExists(cfgManagerPath) Then
+                ' Open cfgManager.hta using ShellExecute
+                CreateObject("WScript.Shell").Run """" & cfgManagerPath & """", 1, False
+            Else
+                MsgBox "cfgManager.hta file not found: " & cfgManagerPath
+            End If
+        End Sub
+    </script>
+</head>
+<body onload="Main()">
+    <div align="center">
+        <h1>Voidz Mod Loader</h1>
+        <button class="button" onclick="CopyFolder()">Load</button>
+        <button class="button" onclick="DeleteFilesAndFoldersInDestinationWithSameNames()">Unload</button>
+        <div class="selected-folders" id="selectedFolders"></div>
+        <br>
+        <button class="button" onclick="OpenSourceFolder()">Open Source Folder</button>
+        <button class="button" onclick="OpenDestinationFolder()">Open Destination Folder</button>
+        <br><br>
+        <button class="button" onclick="RefreshConfig()">Refresh Config</button>
+        <button class="button" onclick="OpenCfgManager()">Open Cfg Editor</button>
+    </div>
+</body>
+</html>
